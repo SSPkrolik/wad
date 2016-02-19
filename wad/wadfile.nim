@@ -59,5 +59,6 @@ proc `$`*(w: Wad): string =
     result = $w.header
 
 when isMainModule:
-    let wad = newWad(newFileStream("res/Doom2.wad"))
-    echo wad
+    let w = newWad(newFileStream("res/Doom2.wad"))
+    for i, v in w.directory:
+        echo v

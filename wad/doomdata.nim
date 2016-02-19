@@ -12,6 +12,12 @@ const
     ltLines    = "LINEDEFS"  ##
     ltSides    = "SIDEDEFS"  ##
     ltVertexes = "VERTEXES"  ##
+    ltSegs     = "SEGS"      ##
+    ltSSectors = "SSECTORS"  ##
+    ltNodes    = "NODES"     ##
+    ltSectors  = "SECTORS"   ##
+    ltReject   = "REJECT"    ##
+    ltBlockMap = "BLOCKMAP"  ## Collision-detection support data structure
 
 discard """
     DEMO1 (offset: 23468, size: 4834)            ? Later ?
@@ -80,12 +86,22 @@ type
         x*: int16
         y*: int16
 
+    MapSeg* = ref object
+        ## Map Segment
+        vertexStart*: int16
+        vertexEnd*:   int16
+        bams*:        int16
+        lineNum*:     int16
+        segSide*:     int16
+        segOffset*:   int16
+
     Map* = ref object
         ## Doom Level Map
         things*: seq[Thing]
         lines*: seq[MapLine]
         sides*: seq[MapSide]
         vertexes*: seq[MapVertex]
+        segments*: seq[MapSeg]
 
     DoomData* = ref object
         ## Doom Game Model Structure
@@ -93,11 +109,6 @@ type
         exitText*: ColorText
         demos*: seq[Demo]
         maps*: seq[Map]
-
-proc newMapVertex(x, y: int16): MapVertex =
-    result.new
-    result.x = x
-    result.y = y
 
 proc newMapSide(xOffset, yOffset: int16, upperTexture, lowerTexture, middleTexture: string, sectorRef: int16): MapSide =
     ## Constructor for map side
@@ -132,10 +143,11 @@ proc newMapLine(vertexStart, vertexEnd, flags, function, tag, sideRight, sideLef
 proc newMap*(): Map =
     ## Empty Map constructor
     result.new
-    result.things = @[]
-    result.lines = @[]
-    result.sides = @[]
+    result.things   = @[]
+    result.lines    = @[]
+    result.sides    = @[]
     result.vertexes = @[]
+    result.segments = @[]
 
 proc `$`*(v: MapVertex): string =
     return "Vertex ($#, $#)" % [$v.x, $v.y]
@@ -160,6 +172,17 @@ proc `$`*(ml: MapLine): string =
         $ml.vertexStart, $ml.vertexEnd,
         $ml.flags, $ml.function, $ml.tag,
         $ml.sideRight, $ml.sideLeft
+    ]
+
+proc `$`*(seg: MapSeg): string =
+    ## Stringify Map Segment
+    return "Segment (vertexes: [$#, $#], bams: $#, line: $#, side: $#, offset: $#)" % [
+        $seg.vertexStart,
+        $seg.vertexEnd,
+        $seg.bams,
+        $seg.lineNum,
+        $seg.segSide,
+        $seg.segOffset
     ]
 
 proc `$`*(ms: MapSide): string =
@@ -206,13 +229,12 @@ proc newDoomData*(s: Stream): DoomData =
 
     for item in wadData.directory:
         # `ENDOOM`: DOS Exit Text
+        let sText = newStringStream(wadData.getLumpData(item))
         if item.name == ltExitText:
-            let sText = newStringStream(wadData.getLumpData(item))
             for i in 0 ..< 80 * 25:
                 result.exitText[i] = sText.readInt16()
         # `PLAYPAL`: Color Palettes
         elif item.name == ltPalettes:
-            let sText = newStringStream(wadData.getLumpData(item))
             for pi in 0 ..< 14:
                 var pal: Palette
                 for ci in 0 ..< 256:
@@ -235,7 +257,6 @@ proc newDoomData*(s: Stream): DoomData =
                 mapContext = newMap()
         # Monsters of Map
         elif item.name == ltThings:
-            let sText = newStringStream(wadData.getLumpData(item))
             for _ in 0 ..< (item.size / 10).int:
                 mapContext.things.add(newThing(
                     sText.readInt16(),
@@ -246,7 +267,6 @@ proc newDoomData*(s: Stream): DoomData =
                 ))
         # Map Lines
         elif item.name == ltLines:
-            let sText = newStringStream(wadData.getLumpData(item))
             for _ in 0 ..< (item.size / 14).int:
                 mapContext.lines.add(newMapLine(
                     sText.readInt16(),
@@ -259,7 +279,6 @@ proc newDoomData*(s: Stream): DoomData =
                 ))
         # Map sides
         elif item.name == ltSides:
-            let sText = newStringStream(wadData.getLumpData(item))
             for _ in 0 ..< (item.size / 30).int:
                 mapContext.sides.add(newMapSide(
                     sText.readInt16(),
@@ -269,13 +288,24 @@ proc newDoomData*(s: Stream): DoomData =
                     $(sText.readStr(8).cstring),
                     sText.readInt16()
                 ))
+        # Map Vertexes
         elif item.name == ltVertexes:
-            let sText = newStringStream(wadData.getLumpData(item))
             for _ in 0 ..< (item.size / 4).int:
-                mapContext.vertexes.add(newMapVertex(
-                    sText.readInt16(),
-                    sText.readInt16()
-                ))
+                let vertex = MapVertex.new
+                vertex.x = sText.readInt16()
+                vertex.y = sText.readInt16()
+                mapContext.vertexes.add(vertex)
+        # Map Segments
+        elif item.name == ltSegs:
+            for _ in 0 ..< (item.size / 12).int:
+                let seg = MapSeg.new
+                seg.vertexStart = sText.readInt16()
+                seg.vertexEnd   = sText.readInt16()
+                seg.bams        = sText.readInt16()
+                seg.lineNum     = sText.readInt16()
+                seg.segSide     = sText.readInt16()
+                seg.segOffset   = sText.readInt16()
+                mapContext.segments.add(seg)
         else:
             discard
 
@@ -301,3 +331,4 @@ when isMainModule:
     echo "Lines: ", game.maps[0].lines[0]
     echo "Sides: ", game.maps[0].sides[0]
     echo "Vertexes: ", game.maps[0].vertexes[0]
+    echo "Segments: ", game.maps[0].segments[0]

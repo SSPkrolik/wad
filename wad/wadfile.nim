@@ -46,7 +46,7 @@ proc newWad*(s: Stream): Wad =
 
 proc getLumpData*(w: Wad, lump: Lump): string =
     ## Get lump data by given Lump object
-    return w.data[lump.offset.int .. (lump.offset + lump.size).int]
+    return w.data[lump.offset.int - 12 ..< (lump.offset + lump.size).int - 12]
 
 proc `$`*(lump: Lump): string =
     return "$# (offset: $#, size: $#)" % [lump.name, $lump.offset, $lump.size]

@@ -1,4 +1,5 @@
 nimcache/
-wad
 *.wad
+wadfile
+doomdata
 

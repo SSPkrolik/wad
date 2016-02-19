@@ -37,13 +37,16 @@ proc newWad*(s: Stream): Wad =
 
     result.data = s.readStr(result.header.offset - s.getPosition())
 
-
     for _ in 0 ..< result.header.lumps:
         let lump = new(Lump)
         lump.offset = s.readInt32()
         lump.size = s.readInt32()
         lump.name = $(s.readStr(8).cstring)
         result.directory.add(lump)
+
+proc getLumpData*(w: Wad, lump: Lump): string =
+    ## Get lump data by given Lump object
+    return w.data[lump.offset.int .. (lump.offset + lump.size).int]
 
 proc `$`*(lump: Lump): string =
     return "$# (offset: $#, size: $#)" % [lump.name, $lump.offset, $lump.size]
@@ -56,5 +59,5 @@ proc `$`*(w: Wad): string =
     result = $w.header
 
 when isMainModule:
-    let wad = newWad(newFileStream("Doom2.wad"))
+    let wad = newWad(newFileStream("res/Doom2.wad"))
     echo wad

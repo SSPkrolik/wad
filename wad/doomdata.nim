@@ -4,20 +4,20 @@ import wadfile
 
 # Lump Types
 const
-    ltExitText = "ENDOOM"    ## DOS Exit text
-    ltPalettes = "PLAYPAL"   ## Color Palettes set
-    ltDemo     = "DEMO"      ## DEMOXX: Recorded Gameplay Demonstration
-    ltMap      = "MAP"       ## MAPXX: Map definition starts
-    ltThings   = "THINGS"    ## Monsters on map
-    ltLines    = "LINEDEFS"  ##
-    ltSides    = "SIDEDEFS"  ##
-    ltVertexes = "VERTEXES"  ##
-    ltSegs     = "SEGS"      ##
-    ltSSectors = "SSECTORS"  ##
-    ltNodes    = "NODES"     ##
-    ltSectors  = "SECTORS"   ##
-    ltReject   = "REJECT"    ##
-    ltBlockMap = "BLOCKMAP"  ## Collision-detection support data structure
+    ltExitText   = "ENDOOM"    ## DOS Exit text
+    ltPalettes   = "PLAYPAL"   ## Color Palettes set
+    ltDemo       = "DEMO"      ## DEMOXX: Recorded Gameplay Demonstration
+    ltMap        = "MAP"       ## MAPXX: Map definition starts
+    ltThings     = "THINGS"    ## Monsters on map
+    ltLines      = "LINEDEFS"  ##
+    ltSides      = "SIDEDEFS"  ##
+    ltVertexes   = "VERTEXES"  ##
+    ltSegs       = "SEGS"      ##
+    ltSubSectors = "SSECTORS"  ##
+    ltNodes      = "NODES"     ##
+    ltSectors    = "SECTORS"   ##
+    ltReject     = "REJECT"    ##
+    ltBlockMap   = "BLOCKMAP"  ## Collision-detection support data structure
 
 discard """
     DEMO1 (offset: 23468, size: 4834)            ? Later ?
@@ -28,7 +28,7 @@ discard """
     LINEDEFS (offset: 54916, size: 5180)             +
     SIDEDEFS (offset: 60096, size: 15870)            +
     VERTEXES (offset: 75968, size: 1532)             +
-    SEGS (offset: 77500, size: 7212)
+    SEGS (offset: 77500, size: 7212)                 +
     SSECTORS (offset: 84712, size: 776)
     NODES (offset: 85488, size: 5404)
     SECTORS (offset: 90892, size: 1534)

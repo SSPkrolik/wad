@@ -5,7 +5,7 @@ import wadfile
 # Lump Types
 const
     ltExitText*  = "ENDOOM"
-    ltPallettes* = "PLAYPAL"
+    ltPalettes* = "PLAYPAL"
 
 type
     ColorChar* = int16
@@ -19,18 +19,18 @@ type
         green*: byte
         blue*: byte
 
-    Pallette* = array[0 .. 255, RGB]
+    Palette* = array[0 .. 255, RGB]
 
     DoomData* = ref object
         ## Doom Game Model Structure
-        pallettes*: array[0 .. 13, Pallette]
+        palettes*: array[0 .. 13, Palette]
         exitText*: ColorText
 
 proc `$`*(c: RGB): string =
     return "RGB($#, $#, $#)" % [$c.red, $c.green, $c.blue]
 
-proc `$`*(p: Pallette): string =
-    result = "Pallette ["
+proc `$`*(p: Palette): string =
+    result = "Palette ["
     for i in 0 .. 255:
         result = result & $p[i] & ", "
     result[^2] = ']'
@@ -67,18 +67,18 @@ proc newDoomData*(s: Stream): DoomData =
             let sText = newStringStream(wadData.getLumpData(item))
             for i in 0 ..< 80 * 25:
                 result.exitText[i] = sText.readInt16()
-        of ltPallettes:
-            ## Color Pallettes
+        of ltPalettes:
+            ## Color Palettes
             let sText = newStringStream(wadData.getLumpData(item))
             for pi in 0 ..< 14:
-                var pal: Pallette
+                var pal: Palette
                 for ci in 0 ..< 256:
                     pal[ci] = RGB(
                         red  : sText.readInt8().byte,
                         green: sText.readInt8().byte,
                         blue : sText.readInt8().byte
                     )
-                result.pallettes[pi] = pal
+                result.palettes[pi] = pal
         else:
             discard
 
@@ -96,4 +96,4 @@ converter toString*(ct: ColorText): string =
 when isMainModule:
     let game = newDoomData(newFileStream("res/Doom2.wad"))
     echo game.exitText
-    echo game.pallettes[0]
+    echo game.palettes[0]

@@ -67,9 +67,9 @@ type
 
     RGB* = object
         ## Color representation
-        red*: byte
-        green*: byte
-        blue*: byte
+        red*: uint8
+        green*: uint8
+        blue*: uint8
 
     Palette* = array[0 .. 255, RGB]
         ## 8-bit Indexed Color Pallette
@@ -164,28 +164,28 @@ type
         sectors*:    seq[MapSector]
 
     PicturePost* = ref object
-        row:    uint8
-        length: uint8
-        colors: seq[uint8]  # 0 and len.seq - 1 indices are not drawn !!!
+        row*:    uint8
+        length*: uint8
+        colors*: seq[uint8]  # 0 and len.seq - 1 indices are not drawn !!!
 
     PictureColumn* = ref object
         columnPointer: int32
-        posts:         seq[PicturePost]
+        posts*:         seq[PicturePost]
 
     Picture* = ref object
-        width:      int16
-        height:     int16
-        leftOffset: int16
-        topOffset:  int16
-        columns:    seq[PictureColumn]
+        width*:      int16
+        height*:     int16
+        leftOffset*: int16
+        topOffset*:  int16
+        columns*:    seq[PictureColumn]
 
     DoomData* = ref object
         ## Doom Game Model Structure
         palettes*: array[0 .. 13, Palette]
         exitText*: ColorText
-        demos*: seq[Demo]
-        maps*: seq[Map]
-        pictures: TableRef[string, Picture]
+        demos*:    seq[Demo]
+        maps*:     seq[Map]
+        pictures*: TableRef[string, Picture]
 
 proc newMapSubSector(numSegs, startSeg: int16): MapSubSector =
     ## Constructor for map sub-sector
@@ -239,7 +239,10 @@ proc `$`*(v: MapVertex): string =
     return "Vertex ($#, $#)" % [$v.x, $v.y]
 
 proc `$`*(c: RGB): string =
-    return "RGB($#, $#, $#)" % [$c.red, $c.green, $c.blue]
+    when defined(js):
+        return "RGB Color"
+    else:
+        return "RGB($#, $#, $#)" % [$c.red, $c.green, $c.blue]
 
 proc `$`*(p: Palette): string =
     result = "Palette ["
@@ -290,13 +293,16 @@ proc `$`*(subSector: MapSubSector): string =
 
 proc `$`*(node: MapNode): string =
     ## Stringify map node
-    return "Node (x: $#, y: $#, dx: $#, dy: $#, ..., child: $#)" % [
-        $node.x,
-        $node.x,
-        $node.dx,
-        $node.dy,
-        $node.child,
-    ]
+    when defined(js):
+        return "Node"
+    else:
+        return "Node (x: $#, y: $#, dx: $#, dy: $#, ..., child: $#)" % [
+            $node.x,
+            $node.x,
+            $node.dx,
+            $node.dy,
+            $node.child,
+        ]
 
 proc `$`*(sector: MapSector): string =
     ## Stringify map sector

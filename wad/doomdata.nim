@@ -5,6 +5,7 @@ import wadfile
 # Lump Types
 const
     ltExitText   = "ENDOOM"    ## DOS Exit text
+
     ltPalettes   = "PLAYPAL"   ## Color Palettes set
     ltDemo       = "DEMO"      ## DEMOXX: Recorded Gameplay Demonstration
     ltMap        = "MAP"       ## MAPXX: Map definition starts
@@ -19,6 +20,9 @@ const
     ltReject     = "REJECT"    ##
     ltBlockMap   = "BLOCKMAP"  ## Collision-detection support data structure
 
+    picHelp1      = "HELP1"     ## `Register!` screen
+
+
 discard """
     DEMO1 (offset: 23468, size: 4834)            ? Later ?
     DEMO2 (offset: 28304, size: 8018)            ? Later ?
@@ -29,12 +33,15 @@ discard """
     SIDEDEFS (offset: 60096, size: 15870)            +
     VERTEXES (offset: 75968, size: 1532)             +
     SEGS (offset: 77500, size: 7212)                 +
-    SSECTORS (offset: 84712, size: 776)
-    NODES (offset: 85488, size: 5404)
-    SECTORS (offset: 90892, size: 1534)
+    SSECTORS (offset: 84712, size: 776)              +
+    NODES (offset: 85488, size: 5404)                +
+    SECTORS (offset: 90892, size: 1534)              +
     REJECT (offset: 92428, size: 436)
     BLOCKMAP (offset: 92864, size: 6418)
 """
+
+const
+    MapNodeIsSubsector*: uint16 = 0x8000  # For MapNode child attribute value
 
 type
     ColorChar* = int16
@@ -95,13 +102,65 @@ type
         segSide*:     int16
         segOffset*:   int16
 
+    MapSubSector* = ref object
+        ## Map Sub-Sector
+        numSegs:  int16
+        startSeg: int16
+
+    MapNode* = ref object
+        ## Map Node
+        x:         int16
+        y:         int16
+        dx:        int16
+        dy:        int16
+        boxtop:    int16
+        boxbottom: int16
+        boxleft:   int16
+        boxright:  int16
+        child:     uint16
+
+    MapSector* = ref object
+        ## Map Sector
+        floorHeight:   int16
+        ceilingHeight: int16
+        floorPic:      string
+        ceilingPic:    string
+        lightLevel:    int16
+        specialSector: int16
+        tag:           int16
+
+    MapReject* = ref object # TODO: !!!
+
+    MapBlockmap* = ref object
+        xorigin: int16
+        yorigin: int16
+        xblocks: int16
+        yblocks: int16
+
     Map* = ref object
         ## Doom Level Map
-        things*: seq[Thing]
-        lines*: seq[MapLine]
-        sides*: seq[MapSide]
-        vertexes*: seq[MapVertex]
-        segments*: seq[MapSeg]
+        things*:     seq[Thing]
+        lines*:      seq[MapLine]
+        sides*:      seq[MapSide]
+        vertexes*:   seq[MapVertex]
+        segments*:   seq[MapSeg]
+        subsectors*: seq[MapSubSector]
+        nodes*:      seq[MapNode]
+        sectors*:    seq[MapSector]
+
+    PicturePost* = ref object
+        offset: int8
+        stride: int8
+        colors: seq[int8]  # 0 and len.seq - 1 indices are not drawn !!!
+
+    PictureColumn* = seq[PicturePost]
+
+    Picture* = ref object
+        width:      int16
+        height:     int16
+        leftOffset: int16
+        topOffset:  int16
+        columns:    seq[PictureColumn]
 
     DoomData* = ref object
         ## Doom Game Model Structure
@@ -109,6 +168,12 @@ type
         exitText*: ColorText
         demos*: seq[Demo]
         maps*: seq[Map]
+
+proc newMapSubSector(numSegs, startSeg: int16): MapSubSector =
+    ## Constructor for map sub-sector
+    result.new
+    result.numSegs = numSegs
+    result.startSeg = startSeg
 
 proc newMapSide(xOffset, yOffset: int16, upperTexture, lowerTexture, middleTexture: string, sectorRef: int16): MapSide =
     ## Constructor for map side
@@ -143,11 +208,14 @@ proc newMapLine(vertexStart, vertexEnd, flags, function, tag, sideRight, sideLef
 proc newMap*(): Map =
     ## Empty Map constructor
     result.new
-    result.things   = @[]
-    result.lines    = @[]
-    result.sides    = @[]
-    result.vertexes = @[]
-    result.segments = @[]
+    result.things     = @[]
+    result.lines      = @[]
+    result.sides      = @[]
+    result.vertexes   = @[]
+    result.segments   = @[]
+    result.subsectors = @[]
+    result.nodes      = @[]
+    result.sectors    = @[]
 
 proc `$`*(v: MapVertex): string =
     return "Vertex ($#, $#)" % [$v.x, $v.y]
@@ -193,6 +261,33 @@ proc `$`*(ms: MapSide): string =
         ms.upperTexture,
         ms.middleTexture,
         ms.lowerTexture
+    ]
+
+proc `$`*(subSector: MapSubSector): string =
+    ## Stringify map sub-sector
+    return "Subsector (num: $#, start: $#)" % [
+        $subSector.numSegs,
+        $subSector.startSeg
+    ]
+
+proc `$`*(node: MapNode): string =
+    ## Stringify map node
+    return "Node (x: $#, y: $#, dx: $#, dy: $#, ..., child: $#)" % [
+        $node.x,
+        $node.x,
+        $node.dx,
+        $node.dy,
+        $node.child,
+    ]
+
+proc `$`*(sector: MapSector): string =
+    ## Stringify map sector
+    return "Sector (floor: $# [$#], ceil: $# [$#], ..., tag: $#)" % [
+        $sector.floorHeight,
+        sector.floorPic,
+        $sector.ceilingHeight,
+        sector.ceilingPic,
+        $sector.tag
     ]
 
 proc `$`*(m: Map): string =
@@ -306,6 +401,35 @@ proc newDoomData*(s: Stream): DoomData =
                 seg.segSide     = sText.readInt16()
                 seg.segOffset   = sText.readInt16()
                 mapContext.segments.add(seg)
+        # Map subsectors
+        elif item.name == ltSubSectors:
+            for _ in 0 ..< (item.size / 4).int:
+                let ssec = newMapSubSector(sText.readInt16(), sText.readInt16())
+                mapContext.subsectors.add(ssec)
+        elif item.name == ltNodes:
+            for _ in 0 ..< (item.size / 18).int:
+                let snode = new(MapNode)
+                snode.x         = sText.readInt16()
+                snode.y         = sText.readInt16()
+                snode.dx        = sText.readInt16()
+                snode.dy        = sText.readInt16()
+                snode.boxtop    = sText.readInt16()
+                snode.boxbottom = sText.readInt16()
+                snode.boxleft   = sText.readInt16()
+                snode.boxright  = sText.readInt16()
+                snode.child     = sText.readInt16().uint16
+                mapContext.nodes.add(snode)
+        elif item.name == ltSectors:
+            for _ in 0 ..< (item.size / 28).int:
+                let sect = new(MapSector)
+                sect.floorHeight   = sText.readInt16()
+                sect.ceilingHeight = sText.readInt16()
+                sect.floorPic      = $(sText.readStr(8).cstring)
+                sect.ceilingPic    = $(sText.readStr(8).cstring)
+                sect.lightLevel    = sText.readInt16()
+                sect.specialSector = sText.readInt16()
+                sect.tag           = sText.readInt16()
+                mapContext.sectors.add(sect)
         else:
             discard
 
@@ -322,13 +446,17 @@ converter toString*(ct: ColorText): string =
 
 when isMainModule:
     let game = newDoomData(newFileStream("res/Doom2.wad"))
-    echo "Doom 2. Hell on Earth:\n"
+    echo "\nDoom 2. Hell on Earth:\n"
 
     echo game.exitText
 
-    echo "Palettes: ", game.palettes[0][..3], "..."
-    echo "Things: ", game.maps[0].things[0]
-    echo "Lines: ", game.maps[0].lines[0]
-    echo "Sides: ", game.maps[0].sides[0]
-    echo "Vertexes: ", game.maps[0].vertexes[0]
-    echo "Segments: ", game.maps[0].segments[0]
+    echo "Palettes  : ", game.palettes[0][..3], "..."
+    echo "Things    : ", game.maps[0].things[0]
+    echo "Lines     : ", game.maps[0].lines[0]
+    echo "Sides     : ", game.maps[0].sides[0]
+    echo "Vertexes  : ", game.maps[0].vertexes[0]
+    echo "Segments  : ", game.maps[0].segments[0]
+    echo "Subsectors: ", game.maps[0].subsectors[0]
+    echo "Nodes     : ", game.maps[0].nodes[0]
+    echo "Sectors   : ", game.maps[0].sectors[0]
+    echo ""

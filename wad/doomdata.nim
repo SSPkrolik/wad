@@ -1,10 +1,14 @@
+import sequtils
 import streams
 import strutils
+import tables
 import wadfile
 
 # Lump Types
 const
     ltExitText   = "ENDOOM"    ## DOS Exit text
+
+    # Map Description
 
     ltPalettes   = "PLAYPAL"   ## Color Palettes set
     ltDemo       = "DEMO"      ## DEMOXX: Recorded Gameplay Demonstration
@@ -17,28 +21,39 @@ const
     ltSubSectors = "SSECTORS"  ##
     ltNodes      = "NODES"     ##
     ltSectors    = "SECTORS"   ##
-    ltReject     = "REJECT"    ##
+    ltReject     = "REJECT"    ## TODO
     ltBlockMap   = "BLOCKMAP"  ## Collision-detection support data structure
 
-    picHelp1      = "HELP1"     ## `Register!` screen
+    # Game-Wide resources
 
+    ltColorMap   = "COLORMAP"  ## TODO
+    ltTexture1   = "TEXTURE1"  ## TODO
+    ltPNames     = "PNAMES"    ## TODO
 
-discard """
-    DEMO1 (offset: 23468, size: 4834)            ? Later ?
-    DEMO2 (offset: 28304, size: 8018)            ? Later ?
-    DEMO3 (offset: 36324, size: 17898)           ? Later ?
-    MAP01 (offset: 54224, size: 0)                   +
-    THINGS (offset: 54224, size: 690)                +
-    LINEDEFS (offset: 54916, size: 5180)             +
-    SIDEDEFS (offset: 60096, size: 15870)            +
-    VERTEXES (offset: 75968, size: 1532)             +
-    SEGS (offset: 77500, size: 7212)                 +
-    SSECTORS (offset: 84712, size: 776)              +
-    NODES (offset: 85488, size: 5404)                +
-    SECTORS (offset: 90892, size: 1534)              +
-    REJECT (offset: 92428, size: 436)
-    BLOCKMAP (offset: 92864, size: 6418)
-"""
+    # Sounds and Music
+
+    ltGenMidi    = "GENMIDI"   ## TODO
+    ltDmxGusc    = "DMXGUSC"   ## TODO
+    ltDPPrefix   = "DP"        ## TODO
+    ltDSPrefix   = "DS"        ## TODO
+    ltDPrefix    = "D_"        ## TODO
+
+    # Sprites Management
+
+    ltSStart     = "S_START"   ## TODO
+    ltSEnd       = "S_END"     ## TODO
+    ltPStart     = "P_START"   ## TODO
+    ltPEnd       = "P_END"     ## TODO
+    ltP1Start    = "P1_START"  ## TODO
+    ltP1End      = "P1_END"    ## TODO
+    ltP2Start    = "P2_START"  ## TODO
+    ltP2End      = "P2_END"    ## TODO
+    ltP3Start    = "P3_START"  ## TODO
+    ltP3End      = "P3_END"    ## TODO
+    ltFStart     = "F_START"   ## TODO
+    ltFEnd       = "F_END"     ## TODO
+    ltF1Start    = "F1_START"  ## TODO
+    ltF1End      = "F1_END"    ## TODO
 
 const
     MapNodeIsSubsector*: uint16 = 0x8000  # For MapNode child attribute value
@@ -149,11 +164,13 @@ type
         sectors*:    seq[MapSector]
 
     PicturePost* = ref object
-        offset: int8
-        stride: int8
-        colors: seq[int8]  # 0 and len.seq - 1 indices are not drawn !!!
+        row:    uint8
+        length: uint8
+        colors: seq[uint8]  # 0 and len.seq - 1 indices are not drawn !!!
 
-    PictureColumn* = seq[PicturePost]
+    PictureColumn* = ref object
+        columnPointer: int32
+        posts:         seq[PicturePost]
 
     Picture* = ref object
         width:      int16
@@ -168,6 +185,7 @@ type
         exitText*: ColorText
         demos*: seq[Demo]
         maps*: seq[Map]
+        pictures: TableRef[string, Picture]
 
 proc newMapSubSector(numSegs, startSeg: int16): MapSubSector =
     ## Constructor for map sub-sector
@@ -316,11 +334,14 @@ proc newDoomData*(s: Stream): DoomData =
     result.new
     result.demos = @[]
     result.maps = @[]
+    result.pictures = newTable[string, Picture]()
 
     let wadData = newWad(s)
 
     # Context for Paring
-    var mapContext: Map = nil
+    var
+        mapContext: Map = nil
+        flatContext: bool = false
 
     for item in wadData.directory:
         # `ENDOOM`: DOS Exit Text
@@ -406,6 +427,7 @@ proc newDoomData*(s: Stream): DoomData =
             for _ in 0 ..< (item.size / 4).int:
                 let ssec = newMapSubSector(sText.readInt16(), sText.readInt16())
                 mapContext.subsectors.add(ssec)
+        # Map nodes
         elif item.name == ltNodes:
             for _ in 0 ..< (item.size / 18).int:
                 let snode = new(MapNode)
@@ -419,6 +441,7 @@ proc newDoomData*(s: Stream): DoomData =
                 snode.boxright  = sText.readInt16()
                 snode.child     = sText.readInt16().uint16
                 mapContext.nodes.add(snode)
+        # Map Sectors
         elif item.name == ltSectors:
             for _ in 0 ..< (item.size / 28).int:
                 let sect = new(MapSector)
@@ -430,8 +453,95 @@ proc newDoomData*(s: Stream): DoomData =
                 sect.specialSector = sText.readInt16()
                 sect.tag           = sText.readInt16()
                 mapContext.sectors.add(sect)
-        else:
+        # Reject
+        elif item.name == ltReject:   # TODO
+            discard #
+        # Colormap
+        elif item.name == ltColorMap: # TODO
             discard
+        # Blockmap
+        elif item.name == ltBlockMap: # TODO
+            discard
+        # Texture1
+        elif item.name == ltTexture1: # TODO
+            discard
+        # PNames
+        elif item.name == ltPNames:   # TODO
+            discard
+        # GenMidi
+        elif item.name == ltGenMidi:  # TODO
+            discard
+        # DMXGUSC
+        elif item.name == ltDmxGusc:  # TODO
+            discard
+        # PC Speaker effects
+        elif item.name.startsWith(ltDPPrefix): # TODO
+            discard
+        # SoundCard effects
+        elif item.name.startsWith(ltDSPrefix): # TODO
+            discard
+        # Music
+        elif item.name.startsWith(ltDPrefix):  # TODO
+            discard
+        # Sprite start
+        elif item.name == ltSStart: # TODO
+            discard
+        # Sprite end
+        elif item.name == ltSEnd:   # TODO
+            discard
+        # Wall Patch Start
+        elif item.name == ltPStart: # TODO
+            discard
+        # Wall Patch End
+        elif item.name == ltPEnd:   # TODO
+            discard
+        elif item.name == ltP1Start: # TODO
+            discard
+        elif item.name == ltP1End:   # TODO
+            discard
+        elif item.name == ltP2Start: # TODO
+            discard
+        elif item.name == ltP2End:   # TODO
+            discard
+        elif item.name == ltP3Start: # TODO
+            discard
+        elif item.name == ltP3End:   # TODO
+            discard
+        elif item.name == ltFStart: # TODO
+            flatContext = true
+        elif item.name == ltFEnd:   # TODO
+            flatContext = false
+        elif item.name == ltF1Start: # TODO
+            discard
+        elif item.name == ltF1End:   # TODO
+            discard
+        # Pictures
+        else:
+            if flatContext: continue # TODO: Rework this
+            let pic = new(Picture)
+            pic.width      = sText.readInt16()
+            pic.height     = sText.readInt16()
+            pic.leftOffset = sText.readInt16()
+            pic.topOffset  = sText.readInt16()
+            pic.columns = @[]
+            for cindex in 0 ..< (pic.width).int:
+                let column = new(PictureColumn)
+                column.columnPointer = sText.readInt32()
+                column.posts = @[]
+                pic.columns.add(column)
+            for col in pic.columns:
+                sText.setPosition(col.columnPointer)
+                var columnStart = cast[uint8](sText.readInt8())
+                while cast[uint8](columnStart) != 0xFF'u8:
+                    let post = new(PicturePost)
+                    post.row = columnStart
+                    post.length = cast[uint8](sText.readInt8())
+                    post.colors = @[]
+                    for _ in 0 ..< post.length + 2:
+                        post.colors.add(cast[uint8](sText.readInt8()))
+                    col.posts.add(post)
+                    columnStart = cast[uint8](sText.readInt8())
+            result.pictures[item.name] = pic
 
 converter toChar*(cc: ColorChar): char =
     ## Returns character representation of the color char
@@ -459,4 +569,4 @@ when isMainModule:
     echo "Subsectors: ", game.maps[0].subsectors[0]
     echo "Nodes     : ", game.maps[0].nodes[0]
     echo "Sectors   : ", game.maps[0].sectors[0]
-    echo ""
+    echo "Pictures  : ", game.pictures.len

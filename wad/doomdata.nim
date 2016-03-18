@@ -543,8 +543,10 @@ proc newDoomData*(s: Stream): DoomData =
                     post.row = columnStart
                     post.length = cast[uint8](sText.readInt8())
                     post.colors = @[]
-                    for _ in 0 ..< post.length + 2:
+                    discard sText.readInt8()
+                    for _ in 0 ..< post.length:
                         post.colors.add(cast[uint8](sText.readInt8()))
+                    discard sText.readInt8()
                     col.posts.add(post)
                     columnStart = cast[uint8](sText.readInt8())
             result.pictures[item.name] = pic
